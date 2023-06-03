@@ -1,44 +1,36 @@
 package com.jdbcemployee;
-
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Enumeration;
-
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 public class PayrollService {
-    public static void main(String[] args) {
+    String url = "jdbc:mysql://localhost:3306/payroll_service";
+    String username = "root";
+    String password = "Neetesh@007";
 
-        String url = "jdbc:mysql://localhost:3306/payroll_service";
-        String username = "root";
-        String password = "Neetesh@007";
-        // Check for the JDBC driver class availability
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            System.out.println("Driver class found!");
-        } catch (ClassNotFoundException e) {
-            System.out.println("Driver class not found!");
-            e.printStackTrace();
-            return; // Exit the program if the driver class is not found
-        }
-            listDriver();
-        try {
-            // Establish a database connection
-            Connection connection = DriverManager.getConnection(url, username, password);
-            System.out.println("Database connection established!");
-            // Close the connection when done
-            connection.close();
+    public List<EmployeePayroll> getEmployeePayrollData() throws EmployeePayrollException {
+        List<EmployeePayroll> employeePayrollList = new ArrayList<>();
+
+        try (Connection connection = DriverManager.getConnection(url, username, password)) {
+            String query = "SELECT * FROM employee_payroll";
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(query);
+
+            while (resultSet.next()) {
+                // Retrieve data from each row
+                int id = resultSet.getInt("id");
+                String name = resultSet.getString("name");
+                double salary = resultSet.getDouble("salary");
+
+                // Create an EmployeePayroll object
+                EmployeePayroll employeePayroll = new EmployeePayroll(id, name, salary);
+
+                // Add the EmployeePayroll object to the list
+                employeePayrollList.add(employeePayroll);
+            }
         } catch (SQLException e) {
-            System.out.println("Failed to connect to the database!");
-            e.printStackTrace();
+            throw new EmployeePayrollException("Error retrieving employee payroll data", e);
         }
-    }
-    public static void listDriver(){
-        Enumeration<Driver>driverList = DriverManager.getDrivers();
-        while (driverList.hasMoreElements()){
-            Driver driverClass = driverList.nextElement();
-            System.out.println("   "+ driverClass.getClass().getName());
 
-        }
+        return employeePayrollList;
     }
 }
