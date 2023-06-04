@@ -56,18 +56,29 @@ public class PayrollService {
             // Establish a connection to the database using the provided URL, username, and password
 
             String query = "UPDATE employee_payroll SET salary = " + newSalary + " WHERE name = '" + name + "'";
+            PreparedStatement preparedStatement = connection.prepareStatement(query);
+            //create instance of preparedststement
+
             // Define the SQL query to update the salary of an employee in the employee_payroll table
             // The salary is updated to the newSalary value for the employee with the specified name
 
-            Statement statement = connection.createStatement();
-            // Create a Statement object to execute the SQL query
+            // Set the parameters for the PreparedStatement
+            preparedStatement.setDouble(1, newSalary);
+            preparedStatement.setString(2, name);
 
-            int rowsUpdated = statement.executeUpdate(query);
+            int rowsUpdated = preparedStatement.executeUpdate();
             // Execute the SQL query and get the number of rows updated
-
             if (rowsUpdated == 0) {
                 // If no rows were updated, it means no employee was found with the specified name
                 throw new EmployeePayrollException("No employee found with the name: " + name);
+            }
+            // Update the Employee Payroll Object with the updated salary
+            List<EmployeePayroll> employeePayrollList = getEmployeePayrollData();
+            for (EmployeePayroll employeePayroll : employeePayrollList) {
+                if (employeePayroll.getName().equals(name)) {
+                    employeePayroll.setSalary(newSalary);
+                    break;
+                }
             }
         } catch (SQLException e) {
             // In case of an SQLException, throw a custom EmployeePayrollException with an appropriate error message
