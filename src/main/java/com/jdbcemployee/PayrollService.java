@@ -119,7 +119,7 @@ public class PayrollService {
         // If no employee is found with the specified name, throw a custom EmployeePayrollException
     }
 
-    private double getSalaryFromDatabase(String name) throws EmployeePayrollException {
+    double getSalaryFromDatabase(String name) throws EmployeePayrollException {
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
             // Establish a connection to the database using the provided URL, username, and password
 
