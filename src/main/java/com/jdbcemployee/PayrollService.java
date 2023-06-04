@@ -1,5 +1,6 @@
 package com.jdbcemployee;
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 public class PayrollService {
@@ -157,6 +158,36 @@ public class PayrollService {
         throw new EmployeePayrollException("No employee found with the name: " + name);
     }
 
+    public List<EmployeePayroll> getEmployeesJoinedInRange(LocalDate startDate, LocalDate endDate) throws EmployeePayrollException {
+        List<EmployeePayroll> employeesInRange = new ArrayList<>();
+        try (Connection connection = DriverManager.getConnection(url, username, password)) {
+            // Prepare the SQL query to select employees joined within the date range
+            String query = "SELECT * FROM employee_payroll WHERE join_date >= '" + startDate + "' AND join_date <= '" + endDate + "'";
+            Statement statement = connection.createStatement();
+
+            // Execute the SQL query and obtain the result set
+            ResultSet resultSet = statement.executeQuery(query);
+
+            // Iterate over the result set and create EmployeePayroll objects
+            while (resultSet.next()) {
+                int id = resultSet.getInt("id");
+                String name = resultSet.getString("name");
+                double salary = resultSet.getDouble("salary");
+
+                // Create an EmployeePayroll object
+                EmployeePayroll employeePayroll = new EmployeePayroll(id, name, salary);
+
+                // Add the EmployeePayroll object to the list
+                employeesInRange.add(employeePayroll);
+            }
+        } catch (SQLException e) {
+            // Throw a custom exception if there is an error retrieving the employees
+            throw new EmployeePayrollException("Error retrieving employees joined in the specified date range");
+        }
+
+        // Return the list of employees in the specified date range
+        return employeesInRange;
+    }
     public class EmployeePayroll {
         private int id;
         private String name;
