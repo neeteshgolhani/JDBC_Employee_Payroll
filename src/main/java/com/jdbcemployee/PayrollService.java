@@ -7,6 +7,8 @@ public class PayrollService {
     String url = "jdbc:mysql://localhost:3306/payroll_service";
     String username = "root";
     String password = "Neetesh@007";
+    private List<EmployeePayroll> employeePayrollList; // Declare the variable at the class level
+
 
     public List<EmployeePayroll> getEmployeePayrollData() throws EmployeePayrollException {
         // Create an empty list to hold EmployeePayroll objects
@@ -36,8 +38,12 @@ public class PayrollService {
 
                 double salary = resultSet.getDouble("salary");
                 // Retrieve the value of the "salary" column for the current row
+                String gender = resultSet.getString("gender");
+                LocalDate startDate = resultSet.getDate("start_date").toLocalDate();
+                LocalDate endDate = resultSet.getDate("end_date").toLocalDate();
 
-                EmployeePayroll employeePayroll = new EmployeePayroll(id, name, salary);
+                EmployeePayroll employeePayroll = new EmployeePayroll(id, name, salary, gender, startDate);
+
                 // Create an EmployeePayroll object using the retrieved data
 
                 employeePayrollList.add(employeePayroll);
@@ -51,78 +57,79 @@ public class PayrollService {
         return employeePayrollList;
         // Return the list of EmployeePayroll objects retrieved from the database
     }
-    public void analyzeEmployeeDataByGender() throws EmployeePayrollException {
+
+    public void addEmployeeToPayroll (EmployeePayroll employee) throws EmployeePayrollException {
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
-            String query = "SELECT gender, SUM(salary), AVG(salary), MIN(salary), MAX(salary), COUNT(*) " +
-                    "FROM employee_payroll " +
-                    "GROUP BY gender";
+            String query = "INSERT INTO employee_payroll (name, salary, gender, start_date) VALUES (?, ?, ?, ?)";
+            PreparedStatement preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setString(1, employee.getName()); // Set employee name parameter
+            preparedStatement.setDouble(2, employee.getSalary()); // Set employee salary parameter
+            preparedStatement.setString(3, employee.getGender()); // Set employee gender parameter
+            preparedStatement.setDate(4, java.sql.Date.valueOf(employee.getStartDate())); // Set employee start date parameter
 
-            Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery(query);
+            int rowsInserted = preparedStatement.executeUpdate(); // Execute the INSERT statement
 
-            while (resultSet.next()) {
-                String gender = resultSet.getString(1);
-                double sumSalary = resultSet.getDouble(2);
-                double avgSalary = resultSet.getDouble(3);
-                double minSalary = resultSet.getDouble(4);
-                double maxSalary = resultSet.getDouble(5);
-                int count = resultSet.getInt(6);
-
-                System.out.println("Gender: " + gender);
-                System.out.println("Sum Salary: " + sumSalary);
-                System.out.println("Average Salary: " + avgSalary);
-                System.out.println("Minimum Salary: " + minSalary);
-                System.out.println("Maximum Salary: " + maxSalary);
-                System.out.println("Count: " + count);
-                System.out.println("--------------------");
+            if (rowsInserted == 0) {
+                throw new EmployeePayrollException("Failed to add employee to the database");
             }
+
+            // Add the employee to the list only if the database operation is successful
+            employeePayrollList.add(employee);
         } catch (SQLException e) {
-            throw new EmployeePayrollException("Error analyzing employee data by gender");
+            throw new EmployeePayrollException("Error adding employee to the payroll");
         }
     }
 
-    public class EmployeePayroll {
+    public static class EmployeePayroll {
+
         private int id;
         private String name;
         private double salary;
+        private String gender;
+        private LocalDate startDate;
+        private LocalDate endDate;
+        // Constructor to initialize the EmployeePayroll object with the provided id, name, and salary
 
-        public EmployeePayroll(int id, String name, double salary) {
-            // Constructor to initialize the EmployeePayroll object with the provided id, name, and salary
+        public EmployeePayroll(int id, String name, double salary, String gender, LocalDate startDate) {
             this.id = id;
             this.name = name;
             this.salary = salary;
+            this.gender = gender;
+            this.startDate = startDate;
+            this.endDate = endDate;
         }
 
         public int getId() {
-            // Getter method to retrieve the id of the EmployeePayroll object
             return id;
         }
 
         public String getName() {
-            // Getter method to retrieve the name of the EmployeePayroll object
             return name;
         }
 
         public double getSalary() {
-            // Getter method to retrieve the salary of the EmployeePayroll object
             return salary;
         }
 
-        public void setSalary(double salary) {
-            // Setter method to update the salary of the EmployeePayroll object
-            this.salary = salary;
+        public String getGender() {
+            return gender;
+        }
+
+        public LocalDate getStartDate() {
+            return startDate;
+        }
+
+        public LocalDate getEndDate() {
+            return endDate;
         }
 
         @Override
         public String toString() {
-            // toString method to return a string representation of the EmployeePayroll object
-            return "EmployeePayroll [id=" + id + ", name=" + name + ", salary=" + salary + "]";
+            return "EmployeePayroll [id=" + id + ", name=" + name + ", salary=" + salary + ", gender=" + gender + "]";
         }
     }
-
     public class EmployeePayrollException extends Exception {
         public EmployeePayrollException(String message) {
-            // Constructor to create an EmployeePayrollException object with the provided error message
             super(message);
         }
     }
