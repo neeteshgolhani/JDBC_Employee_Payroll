@@ -7,62 +7,65 @@ public class PayrollService {
     private String url = "jdbc:mysql://localhost:3306/payroll_service";
     private String username = "root";
     private String password = "Neetesh@007";
+    public List<EmployeePayroll> getEmployeePayrollData() throws EmployeePayrollException {
+        List<EmployeePayroll> employeePayrollList = new ArrayList<>();
 
-    public void addEmployeeToPayroll(EmployeePayroll employee) throws EmployeePayrollException {
-        Connection connection = null;
-        try {
-            connection = DriverManager.getConnection(url, username, password);
-            connection.setAutoCommit(false); // Start the transaction
+        try (Connection connection = DriverManager.getConnection(url, username, password)) {
+            String query = "SELECT * FROM employee_payroll WHERE is_active = true";
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(query);
 
-            // Insert into employee_payroll table
-            String insertEmployeeQuery = "INSERT INTO employee_payroll (id, name, salary, gender, start_date) VALUES (?, ?, ?, ?, ?)";
-            PreparedStatement insertEmployeeStmt = connection.prepareStatement(insertEmployeeQuery);
-            insertEmployeeStmt.setInt(1, employee.getId());
-            insertEmployeeStmt.setString(2, employee.getName());
-            insertEmployeeStmt.setDouble(3, employee.getSalary());
-            insertEmployeeStmt.setString(4, employee.getGender().toString());
-            insertEmployeeStmt.setDate(5, java.sql.Date.valueOf(employee.getStartDate()));
-            int rowsAffected = insertEmployeeStmt.executeUpdate();
-            if (rowsAffected == 0) {
-                throw new EmployeePayrollException("Failed to add employee to payroll");
+            while (resultSet.next()) {
+                int id = resultSet.getInt("id");
+                String name = resultSet.getString("name");
+                double salary = resultSet.getDouble("salary");
+                boolean isActive = resultSet.getBoolean("is_active");
+
+                // Create an EmployeePayroll object
+                EmployeePayroll employeePayroll = new EmployeePayroll(id, name, salary, isActive);
+
+                employeePayrollList.add(employeePayroll);
             }
-
-            // Insert into payroll_details table
-            String insertPayrollQuery = "INSERT INTO payroll_details (employee_id, deductions, taxable_pay, tax, net_pay) VALUES (?, ?, ?, ?, ?)";
-            PreparedStatement insertPayrollStmt = connection.prepareStatement(insertPayrollQuery);
-            insertPayrollStmt.setInt(1, employee.getId());
-            double deductions = employee.getSalary() * 0.2; // Assuming deductions are 20% of salary
-            double taxablePay = employee.getSalary() - deductions;
-            double tax = taxablePay * 0.1; // Assuming tax is 10% of taxable pay
-            double netPay = employee.getSalary() - tax;
-            insertPayrollStmt.setDouble(2, deductions);
-            insertPayrollStmt.setDouble(3, taxablePay);
-            insertPayrollStmt.setDouble(4, tax);
-            insertPayrollStmt.setDouble(5, netPay);
-            rowsAffected = insertPayrollStmt.executeUpdate();
-            if (rowsAffected == 0) {
-                throw new EmployeePayrollException("Failed to add employee to payroll");
-            }
-
-            connection.commit(); // Commit the transaction
         } catch (SQLException e) {
-            try {
-                if (connection != null) {
-                    connection.rollback(); // Rollback the transaction in case of an error
-                }
-            } catch (SQLException ex) {
-                ex.printStackTrace();
+            throw new EmployeePayrollException("Error retrieving employee payroll data", e);
+        }
+
+        return employeePayrollList;
+    }
+
+    public void updateEmployeeStatus(int employeeId, boolean isActive) throws EmployeePayrollException {
+        try (Connection connection = DriverManager.getConnection(url, username, password)) {
+            String query = "UPDATE employee_payroll SET is_active = ? WHERE id = ?";
+            PreparedStatement statement = connection.prepareStatement(query);
+            statement.setBoolean(1, isActive);
+            statement.setInt(2, employeeId);
+
+            int rowsUpdated = statement.executeUpdate();
+            if (rowsUpdated == 0) {
+                SQLException e;
+                throw new EmployeePayrollException("No employee found with ID: " + employeeId, e);
             }
-            throw new EmployeePayrollException("Error adding employee to the payroll");
-        } finally {
-            try {
-                if (connection != null) {
-                    connection.setAutoCommit(true); // Reset auto-commit to true
-                    connection.close();
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
+        } catch (SQLException e) {
+            throw new EmployeePayrollException("Error updating employee status", e);
+        }
+    }
+    public void removeEmployeeFromPayroll(int employeeId) throws EmployeePayrollException {
+        try (Connection connection = DriverManager.getConnection(url, username, password)) {
+            String updateQuery = "UPDATE employee_payroll SET is_active = false WHERE id = ?";
+            PreparedStatement updateStatement = connection.prepareStatement(updateQuery);
+            updateStatement.setInt(1, employeeId);
+
+            int rowsUpdated = updateStatement.executeUpdate();
+
+            if (rowsUpdated == 0) {
+                SQLException e;
+                throw new EmployeePayrollException("No employee found with ID: " + employeeId, e);
             }
+
+            // Remove the employee from the list
+            employeePayrollList.removeIf(employee -> employee.getId() == employeeId);
+        } catch (SQLException e) {
+            throw new EmployeePayrollException("Error removing employee from the payroll", e);
         }
     }
 
@@ -79,6 +82,10 @@ public class PayrollService {
             this.salary = salary;
             this.gender = gender;
             this.startDate = startDate;
+        }
+
+        public EmployeePayroll(int id, String name, double salary, boolean isActive) {
+            
         }
 
         public int getId() {
