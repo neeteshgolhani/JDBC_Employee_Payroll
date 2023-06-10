@@ -6,20 +6,13 @@ import static java.util.Set.of;
 
 public class EmployeeMain {
     public static void main(String[] args) {
-        PayrollService service = new PayrollService();
-        try {
-            // Add a new employee to the payroll
-            PayrollService.EmployeePayroll newEmployee = new PayrollService.EmployeePayroll(10,"Emma Watson", 5000.00,LocalDate.of(2023, 6, 1));
-            service.addEmployeeToPayroll(newEmployee);
-
-            // Get the updated employee payroll data
-            List<PayrollService.EmployeePayroll> payrollData = service.getEmployeePayrollData();
-            System.out.println("Employee Payroll Data:");
-            for (PayrollService.EmployeePayroll payroll : payrollData) {
-                System.out.println(payroll);
+            PayrollService service = new PayrollService();
+            PayrollService.EmployeePayroll employee = new PayrollService.EmployeePayroll(11,"aruf",500660,PayrollService.Gender.MALE, LocalDate.now());
+            try {
+                service.addEmployeeToPayroll(employee);
+                System.out.println("Employee added to the payroll successfully");
+            } catch (EmployeePayrollException e) {
+                e.printStackTrace();
             }
-        } catch (EmployeePayrollException e) {
-            e.printStackTrace();
         }
-    }
 }

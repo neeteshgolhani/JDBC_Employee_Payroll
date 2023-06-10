@@ -3,166 +3,106 @@ import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-    public class PayrollService {
-        private String url = "jdbc:mysql://localhost:3306/payroll_service";
-        private String username = "root";
-        private String password = "Neetesh@007";
+public class PayrollService {
+    private String url = "jdbc:mysql://localhost:3306/payroll_service";
+    private String username = "root";
+    private String password = "Neetesh@007";
 
-        public List<EmployeePayroll> getEmployeePayrollData() throws EmployeePayrollException {
-            List<EmployeePayroll> employeePayrollList = new ArrayList<>();
+    public void addEmployeeToPayroll(EmployeePayroll employee) throws EmployeePayrollException {
+        Connection connection = null;
+        try {
+            connection = DriverManager.getConnection(url, username, password);
+            connection.setAutoCommit(false); // Start the transaction
 
-            try (Connection connection = DriverManager.getConnection(url, username, password)) {
-                String query = "SELECT * FROM employee_payroll";
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(query);
+            // Insert into employee_payroll table
+            String insertEmployeeQuery = "INSERT INTO employee_payroll (id, name, salary, gender, start_date) VALUES (?, ?, ?, ?, ?)";
+            PreparedStatement insertEmployeeStmt = connection.prepareStatement(insertEmployeeQuery);
+            insertEmployeeStmt.setInt(1, employee.getId());
+            insertEmployeeStmt.setString(2, employee.getName());
+            insertEmployeeStmt.setDouble(3, employee.getSalary());
+            insertEmployeeStmt.setString(4, employee.getGender().toString());
+            insertEmployeeStmt.setDate(5, java.sql.Date.valueOf(employee.getStartDate()));
+            int rowsAffected = insertEmployeeStmt.executeUpdate();
+            if (rowsAffected == 0) {
+                throw new EmployeePayrollException("Failed to add employee to payroll");
+            }
 
-                while (resultSet.next()) {
-                    int id = resultSet.getInt("id");
-                    String name = resultSet.getString("name");
-                    double salary = resultSet.getDouble("salary");
+            // Insert into payroll_details table
+            String insertPayrollQuery = "INSERT INTO payroll_details (employee_id, deductions, taxable_pay, tax, net_pay) VALUES (?, ?, ?, ?, ?)";
+            PreparedStatement insertPayrollStmt = connection.prepareStatement(insertPayrollQuery);
+            insertPayrollStmt.setInt(1, employee.getId());
+            double deductions = employee.getSalary() * 0.2; // Assuming deductions are 20% of salary
+            double taxablePay = employee.getSalary() - deductions;
+            double tax = taxablePay * 0.1; // Assuming tax is 10% of taxable pay
+            double netPay = employee.getSalary() - tax;
+            insertPayrollStmt.setDouble(2, deductions);
+            insertPayrollStmt.setDouble(3, taxablePay);
+            insertPayrollStmt.setDouble(4, tax);
+            insertPayrollStmt.setDouble(5, netPay);
+            rowsAffected = insertPayrollStmt.executeUpdate();
+            if (rowsAffected == 0) {
+                throw new EmployeePayrollException("Failed to add employee to payroll");
+            }
 
-                    EmployeePayroll employeePayroll = new EmployeePayroll(id, name, salary, LocalDate.of(2023, 6, 1));
-                    employeePayrollList.add(employeePayroll);
+            connection.commit(); // Commit the transaction
+        } catch (SQLException e) {
+            try {
+                if (connection != null) {
+                    connection.rollback(); // Rollback the transaction in case of an error
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            throw new EmployeePayrollException("Error adding employee to the payroll");
+        } finally {
+            try {
+                if (connection != null) {
+                    connection.setAutoCommit(true); // Reset auto-commit to true
+                    connection.close();
                 }
             } catch (SQLException e) {
-                throw new EmployeePayrollException("Error retrieving employee payroll data");
-            }
-
-            return employeePayrollList;
-        }
-
-        public void addEmployeeToPayroll(EmployeePayroll employee) throws EmployeePayrollException {
-            try (Connection connection = DriverManager.getConnection(url, username, password)) {
-                connection.setAutoCommit(false);
-
-                String insertEmployeeQuery = "INSERT INTO employee_payroll (id, name, salary) VALUES (?, ?, ?)";
-                PreparedStatement employeeStatement = connection.prepareStatement(insertEmployeeQuery);
-                employeeStatement.setInt(1, employee.getId());
-                employeeStatement.setString(2, employee.getName());
-                employeeStatement.setDouble(3, employee.getSalary());
-                int employeeRows = employeeStatement.executeUpdate();
-
-                String insertPayrollQuery = "INSERT INTO payroll_details (employee_id, deductions, taxable_pay, tax, net_pay) " +
-                        "VALUES (?, ?, ?, ?, ?)";
-                PreparedStatement payrollStatement = connection.prepareStatement(insertPayrollQuery);
-                payrollStatement.setInt(1, employee.getId());
-                double deductions = employee.getSalary() * 0.2;
-                double taxablePay = employee.getSalary() - deductions;
-                double tax = taxablePay * 0.1;
-                double netPay = employee.getSalary() - tax;
-                payrollStatement.setDouble(2, deductions);
-                payrollStatement.setDouble(3, taxablePay);
-                payrollStatement.setDouble(4, tax);
-                payrollStatement.setDouble(5, netPay);
-                int payrollRows = payrollStatement.executeUpdate();
-
-                if (employeeRows == 1 && payrollRows == 1) {
-                    connection.commit();
-                    employee.setDeductions(deductions);
-                    employee.setTaxablePay(taxablePay);
-                    employee.setTax(tax);
-                    employee.setNetPay(netPay);
-                } else {
-                    connection.rollback();
-                    throw new EmployeePayrollException("Error adding employee to the payroll");
-                }
-            } catch (SQLException e) {
-                throw new EmployeePayrollException("Error adding employee to the payroll");
-            }
-        }
-
-        public static class EmployeePayroll {
-            private int id;
-            private String name;
-            private double salary;
-            private double deductions;
-            private double taxablePay;
-            private double tax;
-            private double netPay;
-
-            public EmployeePayroll(int id, String name, double salary, double deductions, double taxablePay, double tax, double netPay) {
-                this.id = id;
-                this.name = name;
-                this.salary = salary;
-                this.deductions = deductions;
-                this.taxablePay = taxablePay;
-                this.tax = tax;
-                this.netPay = netPay;
-            }
-
-            public EmployeePayroll(int id, String name, double salary, LocalDate of) {
-                this.id=id;
-                this.name=name;
-                this.salary=salary;
-            }
-
-            public int getId() {
-                return id;
-            }
-
-            public void setId(int id) {
-                this.id = id;
-            }
-
-            public String getName() {
-                return name;
-            }
-
-            public void setName(String name) {
-                this.name = name;
-            }
-
-            public double getSalary() {
-                return salary;
-            }
-
-            public void setSalary(double salary) {
-                this.salary = salary;
-            }
-
-            public double getDeductions() {
-                return deductions;
-            }
-
-            public void setDeductions(double deductions) {
-                this.deductions = deductions;
-            }
-
-            public double getTaxablePay() {
-                return taxablePay;
-            }
-
-            public void setTaxablePay(double taxablePay) {
-                this.taxablePay = taxablePay;
-            }
-
-            public double getTax() {
-                return tax;
-            }
-
-            public void setTax(double tax) {
-                this.tax = tax;
-            }
-
-            public double getNetPay() {
-                return netPay;
-            }
-
-            public void setNetPay(double netPay) {
-                this.netPay = netPay;
-            }
-
-            @Override
-            public String toString() {
-                return "EmployeePayroll{" +
-                        "id=" + id +
-                        ", name='" + name + '\'' +
-                        ", salary=" + salary +
-                        ", deductions=" + deductions +
-                        ", taxablePay=" + taxablePay +
-                        ", tax=" + tax +
-                        ", netPay=" + netPay +
-                        '}';
+                e.printStackTrace();
             }
         }
     }
+
+    static class EmployeePayroll {
+        private int id;
+        private String name;
+        private double salary;
+        private Gender gender;
+        private LocalDate startDate;
+
+        public EmployeePayroll(int id, String name, double salary, Gender gender, LocalDate startDate) {
+            this.id = id;
+            this.name = name;
+            this.salary = salary;
+            this.gender = gender;
+            this.startDate = startDate;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public double getSalary() {
+            return salary;
+        }
+
+        public Gender getGender() {
+            return gender;
+        }
+
+        public LocalDate getStartDate() {
+            return startDate;
+        }
+    }
+
+    enum Gender {
+        MALE, FEMALE
+    }
+}
